@@ -14,7 +14,11 @@ import (
 	"github.com/dstotijn/hetty/pkg/scope"
 )
 
-func (db *Database) FindRequestLogs(ctx context.Context, filter reqlog.FindRequestsFilter, scope *scope.Scope) ([]reqlog.RequestLog, error) {
+func (db *Database) FindRequestLogs(
+	ctx context.Context,
+	filter reqlog.FindRequestsFilter,
+	scope *scope.Scope) ([]reqlog.RequestLog, error,
+) {
 	if filter.ProjectID.Compare(ulid.ULID{}) == 0 {
 		return nil, reqlog.ErrProjectIDMustBeSet
 	}
@@ -231,6 +235,7 @@ func findRequestLogIDsByProjectID(txn *badger.Txn, projectID ulid.ULID) ([]ulid.
 	reqLogIDs := make([]ulid.ULID, 0)
 	opts := badger.DefaultIteratorOptions
 	opts.PrefetchValues = false
+	opts.Reverse = true
 	iterator := txn.NewIterator(opts)
 	defer iterator.Close()
 
@@ -238,7 +243,7 @@ func findRequestLogIDsByProjectID(txn *badger.Txn, projectID ulid.ULID) ([]ulid.
 
 	prefix := entryKey(reqLogPrefix, reqLogProjectIDIndex, projectID[:])
 
-	for iterator.Seek(prefix); iterator.ValidForPrefix(prefix); iterator.Next() {
+	for iterator.Seek(append(prefix, 255)); iterator.ValidForPrefix(prefix); iterator.Next() {
 		projectIndexKey = iterator.Item().KeyCopy(projectIndexKey)
 
 		var id ulid.ULID
